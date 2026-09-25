@@ -13,13 +13,18 @@ router = APIRouter(prefix="/api/manifest", tags=["单证处理"])
 service = ManifestService()
 
 LIST_FIELDS = ["单证编号", "单证类型", "关联航次", "申报箱量", "申报人", "提交时间", "审核人员", "单证状态"]
-STATUSES = ["待提交", "已提交", "已审核", "已退回"]
+
+
+@router.get("/rules")
+def get_rules() -> dict[str, Any]:
+    """单证判断规则的唯一下发口：必填项、状态序列与流转前提都取自 service。"""
+    return service.rules_view()
 
 
 @router.get("", response_model=PageResult[dict])
 def list_entries(
     keyword: str | None = Query(default=None, description="按单证编号检索"),
-    status: str | None = Query(default=None, description="待提交、已提交、已审核、已退回"),
+    status: str | None = Query(default=None, description="、".join(service.rules_view()["statuses"])),
     page: int = 1,
     size: int = 20,
 ) -> PageResult[dict]:

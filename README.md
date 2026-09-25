@@ -74,3 +74,5 @@ npm run dev
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+- 单证的录入与流转判断只在 `app/services/manifest.py` 定义一份，
+  页面通过 `GET /api/manifest/rules` 读取，不再各自维护副本。

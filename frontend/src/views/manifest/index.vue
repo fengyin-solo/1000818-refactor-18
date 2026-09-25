@@ -63,23 +63,32 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
-import { request } from '@/api/client'
+import { fetchJson, request } from '@/api/client'
 
 type Row = Record<string, string | number | null>
 
+type ManifestRules = {
+  module: string
+  fields: string[]
+  required_fields: string[]
+  statuses: string[]
+  actions: { name: string; target: string; abnormal: boolean }[]
+}
+
 const ENDPOINT = '/api/manifest'
-const columns = ["单证编号", "单证类型", "关联航次", "申报箱量", "申报人", "提交时间", "审核人员", "单证状态"]
-const actions = ["提交单证", "审核通过", "退回单证"]
-const statuses = ["待提交", "已提交", "已审核", "已退回"]
+// 单证该填哪些项、什么时候能流转，只以后端 /api/manifest/rules 为唯一来源，
+// 页面不再自己抄一份，保证与校验接口结论同源。
+const columns = ref<string[]>([])
+const actions = ref<string[]>([])
 const stats = [{"label": "待提交单证", "value": 0}, {"label": "已提交单证", "value": 0}, {"label": "退回单证数", "value": 0}]
 
 const rows = ref<Row[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
-const filterFields = columns.slice(0, 3)
+const filterFields = computed(() => columns.value.slice(0, 3))
 
 function resetFilters() {
   filters.value = {}
@@ -126,5 +135,20 @@ async function reload() {
   }
 }
 
-onMounted(reload)
+async function loadRules() {
+  const rules = await fetchJson<ManifestRules>(`${ENDPOINT}/rules`)
+  columns.value = rules.fields
+  actions.value = rules.actions.map((item) => item.name)
+}
+
+onMounted(async () => {
+  errorMessage.value = ''
+  try {
+    await loadRules()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '单证规则读取失败'
+    return
+  }
+  await reload()
+})
 </script>

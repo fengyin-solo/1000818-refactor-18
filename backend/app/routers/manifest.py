@@ -1,4 +1,8 @@
-"""单证处理接口：维护单证，覆盖提交单证、审核通过、退回单证等动作。"""
+"""单证处理接口：维护单证，覆盖提交单证、审核通过、退回单证等动作。
+
+单证该填哪些项、什么时候能流转，判断只在 app.services.manifest 里定义一份，
+本层与前端页面都从那里取结论，不再各自抄一份。
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -11,9 +15,6 @@ from app.services.manifest import ManifestService
 router = APIRouter(prefix="/api/manifest", tags=["单证处理"])
 
 service = ManifestService()
-
-LIST_FIELDS = ["单证编号", "单证类型", "关联航次", "申报箱量", "申报人", "提交时间", "审核人员", "单证状态"]
-STATUSES = ["待提交", "已提交", "已审核", "已退回"]
 
 
 @router.get("", response_model=PageResult[dict])
@@ -28,6 +29,19 @@ def list_entries(
         raise HTTPException(status_code=400, detail="每页最多 200 条，请缩小分页范围")
     items, total = service.list_entries(keyword=keyword, status=status, page=page, size=size)
     return PageResult(items=items, total=total, page=page, size=size)
+
+
+@router.get("/rules", response_model=dict)
+def get_rules() -> dict[str, Any]:
+    """单证录入与流转判断：页面与接口共用这一份，保证两边结论永远同源。"""
+    return service.rules()
+
+
+@router.get("/export")
+def export_entries() -> dict[str, Any]:
+    """导出单证处理清单：返回当前过滤条件下的全量数据。"""
+    items, total = service.list_entries(page=1, size=10000)
+    return {"module": "manifest", "total": total, "items": items}
 
 
 @router.get("/{entry_id}", response_model=dict)
@@ -56,10 +70,3 @@ def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
     if entry is None:
         return ActionResult(ok=False, message=message)
     return ActionResult(ok=True, message=message, entry=entry)
-
-
-@router.get("/export")
-def export_entries() -> dict[str, Any]:
-    """导出单证处理清单：返回当前过滤条件下的全量数据。"""
-    items, total = service.list_entries(page=1, size=10000)
-    return {"module": "manifest", "total": total, "items": items}

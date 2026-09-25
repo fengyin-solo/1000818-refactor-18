@@ -1,4 +1,8 @@
-"""单证处理业务规则：状态流转、字段校验与筛选口径都收在这里。"""
+"""单证处理业务规则：该填哪些项、什么时候能流转，整个模块只在这里定义一份。
+
+页面与校验接口共用同一份判断：接口直接引用下方常量，
+页面通过 GET /api/manifest/rules 读取 RULES，两边结论永远同源。
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -6,13 +10,29 @@ from typing import Any
 from app.store import store
 
 MODULE = "manifest"
+FIELDS = ["单证编号", "单证类型", "关联航次", "申报箱量", "申报人", "提交时间", "审核人员", "单证状态"]
 REQUIRED_FIELDS = ["单证编号", "单证类型", "关联航次"]
 STATUS_ORDER = ["待提交", "已提交", "已审核", "已退回"]
 ACTION_RULES = {"提交单证": "已提交", "审核通过": "已审核", "退回单证": "已退回"}
-NEGATIVE_ACTIONS = []
+NEGATIVE_ACTIONS: list[str] = []
+
+RULES: dict[str, Any] = {
+    "module": MODULE,
+    "fields": FIELDS,
+    "required_fields": REQUIRED_FIELDS,
+    "statuses": STATUS_ORDER,
+    "actions": [
+        {"name": name, "target": target, "abnormal": name in NEGATIVE_ACTIONS}
+        for name, target in ACTION_RULES.items()
+    ],
+}
 
 
 class ManifestService:
+    def rules(self) -> dict[str, Any]:
+        """单证录入与流转判断的唯一出口，页面与接口都从这里取结论。"""
+        return RULES
+
     def list_entries(
         self,
         *,
